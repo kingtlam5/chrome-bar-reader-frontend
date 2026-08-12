@@ -201,7 +201,7 @@
       top: 0;
       right: 0;
       z-index: 2;
-      width: 155px;
+      width: 93px;
       height: var(--compact-height);
       padding: 0;
       border: 0;
@@ -209,13 +209,12 @@
     }
 
     .memo.compact .title-text,
-    .memo.compact .status-bar,
-    .memo.compact .toc-drawer {
+    .memo.compact .status-bar {
       display: none;
     }
 
     .memo.compact .reader {
-      width: calc(100% - 155px);
+      width: calc(100% - 93px);
       height: var(--compact-height);
       padding: 4px 9px;
       overflow: hidden;
@@ -240,92 +239,6 @@
       margin: 0;
       text-align: left;
     }
-
-    .title-btn.disabled {
-      opacity: 0.35;
-      cursor: default;
-    }
-
-    .title-btn.disabled:hover,
-    .title-btn.disabled:focus-visible {
-      background: transparent;
-    }
-
-    .toc-drawer {
-      position: absolute;
-      top: var(--title-height);
-      right: 0;
-      bottom: var(--status-height);
-      left: 0;
-      z-index: 4;
-      overflow-y: auto;
-      padding: 8px 10px;
-      border-bottom: 1px solid rgba(100, 84, 23, 0.11);
-      background: linear-gradient(180deg, #fff6bf 0%, var(--memo-bg) 100%);
-      font-size: 12px;
-      line-height: 1.5;
-      scrollbar-color: rgba(103, 94, 59, 0.35) transparent;
-      scrollbar-width: thin;
-      transform: translateY(-104%);
-      opacity: 0;
-      pointer-events: none;
-      transition:
-        transform var(--transition-speed) ease,
-        opacity var(--transition-speed) ease;
-    }
-
-    .toc-drawer.open {
-      transform: translateY(0);
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .toc-drawer::-webkit-scrollbar {
-      width: 5px;
-    }
-
-    .toc-drawer::-webkit-scrollbar-thumb {
-      border-radius: 5px;
-      background: rgba(103, 94, 59, 0.3);
-    }
-
-    .toc-title {
-      margin: 0 0 6px;
-      color: var(--muted-text);
-      font-size: 11px;
-    }
-
-    .toc-item {
-      display: block;
-      width: 100%;
-      margin: 0 0 4px;
-      padding: 4px 6px;
-      border: 0;
-      border-radius: 3px;
-      background: transparent;
-      color: var(--memo-text);
-      font-size: 12px;
-      line-height: 1.45;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .toc-item:hover,
-    .toc-item:focus-visible {
-      background: var(--active-bg);
-      outline: none;
-    }
-
-    .toc-item.current {
-      background: var(--active-bg);
-      font-weight: 600;
-    }
-
-    .toc-empty {
-      margin: 0;
-      color: var(--muted-text);
-      font-size: 12px;
-    }
   </style>
 </head>
 <body>
@@ -333,18 +246,11 @@
     <header class="title-bar">
       <span class="title-text">Notes - Task List</span>
       <div class="title-actions">
-        <button class="title-btn" id="tocBtn" type="button" aria-label="章節目錄" title="章節目錄">≡</button>
-        <button class="title-btn disabled" id="translateBtn" type="button" aria-label="簡轉繁" title="簡轉繁">⇄</button>
         <button class="title-btn" id="helpBtn" type="button" aria-label="使用說明" title="使用說明">?</button>
         <button class="title-btn" id="resizeBtn" type="button" aria-label="縮放視窗至便利貼大小" title="縮放視窗至便利貼大小">⤢</button>
         <button class="title-btn" id="modeToggle" type="button" aria-label="切換單行模式" title="切換單行模式">−</button>
       </div>
     </header>
-
-    <aside class="toc-drawer" id="tocDrawer" aria-hidden="true">
-      <p class="toc-title">章節目錄</p>
-      <div id="tocList"></div>
-    </aside>
 
     <section class="reader" id="reader" aria-live="polite"></section>
 
@@ -373,7 +279,6 @@
       const STORAGE_KEY = "stealthMemoReader.v1";
       const MAX_SENTENCE_LENGTH = 30;
       const VISIBLE_SENTENCE_COUNT = 4;
-      const CHAPTER_TITLE_RE = /^第[零一二三四五六七八九十百千萬0-9]+[章回卷]/;
       const FAKE_TASKS = [
         "1. Review API logs",
         "2. Update Jira ticket",
@@ -396,9 +301,6 @@
         "Memo 模式 350×250，單行模式 350×30。",
         "跳轉：點擊右下角進度數字。",
         "輸入行號後按 Enter 即可跳轉。",
-        "章節目錄：點頂部 ≡ 按鈕開啟。",
-        "簡轉繁：偵測到簡體時可點 ⇄ 轉換。",
-        "老闆鍵開啟時會自動關閉目錄。",
         "閱讀進度會自動儲存在瀏覽器。",
         "重新整理後會從上次位置繼續閱讀。",
         "關閉說明：再點頂部 ? 按鈕即可。"
@@ -411,10 +313,7 @@
         compact: false,
         bossMode: false,
         manualMode: false,
-        manualIndex: 0,
-        toc: [],
-        tocOpen: false,
-        translateTraditional: false
+        manualIndex: 0
       };
 
       const memo = document.getElementById("memo");
@@ -426,11 +325,6 @@
       const modeToggle = document.getElementById("modeToggle");
       const resizeBtn = document.getElementById("resizeBtn");
       const helpBtn = document.getElementById("helpBtn");
-      const tocBtn = document.getElementById("tocBtn");
-      const translateBtn = document.getElementById("translateBtn");
-      const tocDrawer = document.getElementById("tocDrawer");
-      const tocList = document.getElementById("tocList");
-      let s2tMap = null;
 
       // ===== 視窗尺寸：一鍵縮放至便利貼大小；若瀏覽器封鎖則改以彈出視窗開啟 =====
       function getMemoWindowSize() {
@@ -511,223 +405,18 @@
         return true;
       }
 
-      // ===== 簡繁轉換：偵測簡體中文並轉為繁體顯示 =====
-      function buildS2TMap() {
-        if (s2tMap) return s2tMap;
-
-        const simplified =
-          "万与专业东丝两严丧个临为举义乌乐习乡书买乱争于亏云亚产亲亿仅从仓们价众优会传伤体余佣侠侣侧侨侬俨俭债倾偿储儿党兰关兴养兽内册军农务动劳势区医华协单卖卫厂厅历压厌县参双发变台叶号叹听启吴员国图圆圣场块坚坛坝报担拟拥择挂挡换据摄敌数断旧时显杀杂权条来构枪样档桥梦检楼欢欧止正此步武死残段母每毒比毕毛民气水永求汇汉汤沟没沧河油治沿泉法波泥注泪洁洒浅测济浓浙浦浩浪浮海涂消涉涌涛涨涩淀深混清渐渔渗温游湾湿溃溅滚满滤滥滨滩灭灯灵灾灿炉烟烦烧热爷墙声壳处备复够头夸夹夺奋奥妆妇妈实宠审宝对寻导将尘尝尽层属屿岁岛岭岸峡峰川州市布师帮干平方无日时明星春是月朋服朗望朝期本来说话语词识认让讲论议记许设访译试诗话详语误说请读课谁调谈谢谱护去又才打把被给还进过这那里后得很就也都要以于着么吗呢吧啊嗯哦呵喂嘿";
-        const traditional =
-          "萬與專業東絲兩嚴喪個臨為舉義烏樂習鄉書買亂爭於虧雲亞產親億僅從倉們價眾優會傳傷體餘傭俠侶側僑儂儼儉債傾償儲兒黨蘭關興養獸內冊軍農務動勞勢區醫華協單賣衛廠廳歷壓厭縣參雙發變臺葉號嘆聽啟吳員國圖圓聖場塊堅壇壩報擔擬擁擇掛擋換據攝敵數斷舊時顯殺雜權條來構槍樣檔橋夢檢樓歡歐止正此步武死殘段母每毒比畢毛民氣水永求匯漢湯溝沒滄河油治沿泉法波泥注淚潔灑淺測濟濃浙浦浩浪浮海塗消涉湧濤漲澀澱深混清漸漁滲溫遊灣濕潰濺滾滿濾濫濱灘滅燈靈災燦爐煙煩燒熱爺牆聲殼處備復夠頭誇夾奪奮奧妝婦媽實寵審寶對尋導將塵嘗盡層屬嶼歲島嶺岸峽峰川州市布師幫幹平方無日時明星春是月朋服朗望朝期本來說話語詞識認讓講論議記許設訪譯試詩話詳語誤說請讀課誰調談謝譜護去又才打把被給還進過這那裡後得很就也都要以於著麼嗎呢吧啊嗯哦呵喂嘿";
-
-        s2tMap = new Map();
-        const length = Math.min(simplified.length, traditional.length);
-        for (let i = 0; i < length; i += 1) {
-          s2tMap.set(simplified[i], traditional[i]);
-        }
-        return s2tMap;
-      }
-
-      function toTraditional(text) {
-        const map = buildS2TMap();
-        return Array.from(text, (char) => map.get(char) || char).join("");
-      }
-
-      function countSimplifiedChars(text) {
-        const map = buildS2TMap();
-        let count = 0;
-        Array.from(text).forEach((char) => {
-          if (map.has(char)) count += 1;
-        });
-        return count;
-      }
-
-      function hasSimplifiedContent() {
-        if (!state.sentences.length || state.translateTraditional) return false;
-        const sample = state.sentences.slice(state.index, state.index + 12).join("");
-        return countSimplifiedChars(sample) >= 2;
-      }
-
-      function updateTranslateButton() {
-        const enabled = hasSimplifiedContent();
-        translateBtn.classList.toggle("disabled", !enabled);
-        translateBtn.classList.toggle("active", state.translateTraditional);
-        translateBtn.disabled = !enabled;
-        translateBtn.title = state.translateTraditional
-          ? "已轉為繁體"
-          : enabled
-            ? "簡體轉繁體"
-            : "簡轉繁";
-      }
-
-      function applyTraditionalConversion() {
-        if (!hasSimplifiedContent()) return;
-
-        state.sentences = state.sentences.map((sentence) => toTraditional(sentence));
-        state.toc = state.toc.map((item) => ({
-          ...item,
-          title: toTraditional(item.title)
-        }));
-        state.translateTraditional = true;
-        saveState();
-        render();
-      }
-
-      // ===== 章節目錄：TXT 正則辨識與 EPUB navigation 解析 =====
-      function buildTxtToc(sentences) {
-        const toc = [];
-        sentences.forEach((sentence, index) => {
-          const trimmed = sentence.trim();
-          if (CHAPTER_TITLE_RE.test(trimmed)) {
-            toc.push({ title: trimmed.slice(0, 48), index });
-          }
-        });
-        return toc;
-      }
-
-      function parseNavDocument(navHtml) {
-        const doc = new DOMParser().parseFromString(navHtml, "text/html");
-        const nav = doc.querySelector('nav[epub\\:type="toc"], nav[role="doc-toc"], nav#toc, nav');
-        if (!nav) return [];
-
-        return [...nav.querySelectorAll("a[href]")]
-          .map((anchor) => ({
-            title: anchor.textContent.replace(/\s+/g, " ").trim(),
-            href: anchor.getAttribute("href")
-          }))
-          .filter((item) => item.title && item.href);
-      }
-
-      function parseNcxDocument(ncxXml) {
-        const entries = [];
-        const pattern = /<navPoint[\s\S]*?<text>([^<]+)<\/text>[\s\S]*?<content[^>]+src="([^"]+)"/gi;
-        let match;
-
-        while ((match = pattern.exec(ncxXml)) !== null) {
-          entries.push({ title: match[1].trim(), href: match[2] });
-        }
-
-        return entries;
-      }
-
-      function parseEpubNavigation(files, opfPath, opfXml, manifest) {
-        let navHref = "";
-        let ncxHref = "";
-        const itemRegex = /<item\b[^>]*>/gi;
-        let itemMatch;
-
-        while ((itemMatch = itemRegex.exec(opfXml)) !== null) {
-          const tag = itemMatch[0];
-          const href = getXmlAttr(tag, "href");
-          const properties = getXmlAttr(tag, "properties");
-          const mediaType = getXmlAttr(tag, "media-type");
-
-          if (properties.includes("nav") && href) navHref = href;
-          if (mediaType.includes("ncx") && href) ncxHref = href;
-        }
-
-        if (navHref) {
-          const navHtml = readZipText(files, resolveZipPath(opfPath, navHref));
-          const navEntries = parseNavDocument(navHtml);
-          if (navEntries.length) return navEntries;
-        }
-
-        if (ncxHref) {
-          const ncxXml = readZipText(files, resolveZipPath(opfPath, ncxHref));
-          const ncxEntries = parseNcxDocument(ncxXml);
-          if (ncxEntries.length) return ncxEntries;
-        }
-
-        return [];
-      }
-
-      function mapEpubTocToIndices(navEntries, opfPath, spinePaths, spineStartIndices) {
-        const hrefToSpineIndex = new Map();
-        spinePaths.forEach((path, spineIndex) => {
-          hrefToSpineIndex.set(path, spineIndex);
-          hrefToSpineIndex.set(path.split("/").pop(), spineIndex);
-        });
-
-        const toc = [];
-        navEntries.forEach((entry) => {
-          const href = entry.href.split("#")[0];
-          const resolved = resolveZipPath(opfPath, href);
-          const spineIndex = hrefToSpineIndex.get(resolved) ?? hrefToSpineIndex.get(href.split("/").pop());
-          if (spineIndex === undefined) return;
-
-          toc.push({
-            title: entry.title.slice(0, 48),
-            index: spineStartIndices[spineIndex]
-          });
-        });
-
-        return toc;
-      }
-
-      function renderTocDrawer() {
-        tocDrawer.classList.toggle("open", state.tocOpen);
-        tocDrawer.setAttribute("aria-hidden", state.tocOpen ? "false" : "true");
-        tocBtn.classList.toggle("active", state.tocOpen);
-        tocList.replaceChildren();
-
-        if (!state.toc.length) {
-          const empty = document.createElement("p");
-          empty.className = "toc-empty";
-          empty.textContent = "未找到章節目錄";
-          tocList.appendChild(empty);
-          return;
-        }
-
-        state.toc.forEach((item) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "toc-item";
-          if (item.index === state.index) button.classList.add("current");
-          button.textContent = item.title;
-          button.addEventListener("click", () => jumpToChapter(item.index));
-          tocList.appendChild(button);
-        });
-      }
-
-      function openToc() {
-        if (state.compact || !state.sentences.length) return;
-        state.tocOpen = true;
-        state.manualMode = false;
-        renderTocDrawer();
-      }
-
-      function closeToc() {
-        state.tocOpen = false;
-        renderTocDrawer();
-      }
-
-      function toggleToc() {
-        if (state.tocOpen) closeToc();
-        else openToc();
-      }
-
-      function jumpToChapter(index) {
-        state.index = clampIndex(index);
-        state.bossMode = false;
-        state.manualMode = false;
-        state.tocOpen = false;
-        saveState();
-        render();
-      }
-
       // ===== 文字解析器：依中英文標點與換行切句，長句再以 30 字分段 =====
-      function parseText(text, options = {}) {
-        const { collectToc = true } = options;
+      function parseText(text) {
         const normalized = text
           .replace(/^\uFEFF/, "")
           .replace(/\r\n?/g, "\n")
           .replace(/\u0000/g, "")
           .trim();
 
-        if (!normalized) return { sentences: [], toc: [] };
+        if (!normalized) return [];
 
         const rawSentences = normalized.match(/[^。！？!?\n]+[。！？!?]?|[。！？!?]+/g) || [];
-        const sentences = [];
+        const parsed = [];
 
         rawSentences.forEach((rawSentence) => {
           const sentence = rawSentence.replace(/\s+/g, " ").trim();
@@ -735,12 +424,11 @@
 
           const characters = Array.from(sentence);
           for (let start = 0; start < characters.length; start += MAX_SENTENCE_LENGTH) {
-            sentences.push(characters.slice(start, start + MAX_SENTENCE_LENGTH).join(""));
+            parsed.push(characters.slice(start, start + MAX_SENTENCE_LENGTH).join(""));
           }
         });
 
-        const toc = collectToc ? buildTxtToc(sentences) : [];
-        return { sentences, toc };
+        return parsed;
       }
 
       // ===== 中文編碼處理：優先 UTF-8，偵測異常後嘗試 Big5 與 GB18030 =====
@@ -800,9 +488,7 @@
           s: state.sentences,
           i: state.index,
           n: state.fileName,
-          c: state.compact,
-          t: state.toc,
-          tr: state.translateTraditional
+          c: state.compact
         };
 
         try {
@@ -825,12 +511,6 @@
           state.index = clampIndex(Number(saved.i) || 0);
           state.fileName = typeof saved.n === "string" ? saved.n : "";
           state.compact = Boolean(saved.c);
-          state.toc = Array.isArray(saved.t)
-            ? saved.t
-              .filter((item) => item && typeof item.title === "string" && Number.isFinite(Number(item.index)))
-              .map((item) => ({ title: item.title, index: Number(item.index) }))
-            : buildTxtToc(state.sentences);
-          state.translateTraditional = Boolean(saved.tr);
         } catch (error) {
           localStorage.removeItem(STORAGE_KEY);
         }
@@ -846,18 +526,14 @@
         helpBtn.title = state.manualMode ? "關閉說明" : "使用說明";
         document.documentElement.classList.toggle("compact", state.compact);
         document.body.classList.toggle("compact", state.compact);
-        updateTranslateButton();
-        renderTocDrawer();
 
         if (state.bossMode) {
-          state.tocOpen = false;
           renderSentences(FAKE_TASKS, 0, false);
           progress.textContent = "3 tasks pending";
           return;
         }
 
         if (state.manualMode) {
-          closeToc();
           state.manualIndex = clampManualIndex(state.manualIndex);
           const visible = state.compact
             ? [USER_MANUAL[state.manualIndex]]
@@ -975,7 +651,6 @@
         state.manualMode = !state.manualMode;
         state.bossMode = false;
         state.manualIndex = 0;
-        state.tocOpen = false;
         closeJumpInput();
         render();
       }
@@ -1066,7 +741,7 @@
           .trim();
       }
 
-      async function extractEpubBook(arrayBuffer) {
+      async function extractEpubText(arrayBuffer) {
         const files = await parseZipEntries(arrayBuffer);
         const containerXml = readZipText(files, "META-INF/container.xml");
         const rootFileMatch = containerXml.match(/<rootfile\b[^>]*>/i);
@@ -1109,38 +784,24 @@
           throw new Error("EMPTY_EPUB_SPINE");
         }
 
-        const spinePaths = spineIds.map((id) => {
+        const textParts = [];
+        spineIds.forEach((id) => {
           const item = manifest.get(id);
-          return resolveZipPath(opfPath, item.href);
-        });
-        const spineStartIndices = [];
-        const sentences = [];
-
-        spinePaths.forEach((chapterPath) => {
-          spineStartIndices.push(sentences.length);
+          const chapterPath = resolveZipPath(opfPath, item.href);
           const chapterHtml = readZipText(files, chapterPath);
-          const parsed = parseText(htmlToPlainText(chapterHtml), { collectToc: false });
-          sentences.push(...parsed.sentences);
+          const plainText = htmlToPlainText(chapterHtml);
+          if (plainText) textParts.push(plainText);
         });
 
-        const navEntries = parseEpubNavigation(files, opfPath, opfXml, manifest);
-        let toc = mapEpubTocToIndices(navEntries, opfPath, spinePaths, spineStartIndices);
-        if (!toc.length) {
-          toc = buildTxtToc(sentences);
-        }
-
-        return { sentences, toc };
+        return textParts.join("\n\n");
       }
 
-      function applyImportedSentences(sentences, fileName, toc = []) {
+      function applyImportedSentences(sentences, fileName) {
         state.sentences = sentences;
-        state.toc = toc;
         state.index = 0;
         state.fileName = fileName;
         state.bossMode = false;
         state.manualMode = false;
-        state.tocOpen = false;
-        state.translateTraditional = false;
         saveState({ showQuotaAlert: true });
         render();
       }
@@ -1162,26 +823,27 @@
           const arrayBuffer = await file.arrayBuffer();
 
           if (isEpub) {
-            const epubBook = await extractEpubBook(arrayBuffer);
+            const epubText = await extractEpubText(arrayBuffer);
+            const sentences = parseText(epubText);
 
-            if (!epubBook.sentences.length) {
+            if (!sentences.length) {
               alert("EPUB 中沒有可閱讀的文字。");
               return;
             }
 
-            applyImportedSentences(epubBook.sentences, file.name, epubBook.toc);
+            applyImportedSentences(sentences, file.name);
             return;
           }
 
           const decoded = decodeText(arrayBuffer);
-          const parsed = parseText(decoded.text);
+          const sentences = parseText(decoded.text);
 
-          if (!parsed.sentences.length) {
+          if (!sentences.length) {
             alert("文件中沒有可閱讀的文字。");
             return;
           }
 
-          applyImportedSentences(parsed.sentences, file.name, parsed.toc);
+          applyImportedSentences(sentences, file.name);
 
           if (decoded.uncertain) {
             alert("文件編碼無法完全確認。已嘗試 UTF-8、Big5 與 GB18030；若仍有亂碼，請先將文件另存為 UTF-8 後再匯入。");
@@ -1206,19 +868,6 @@
       helpBtn.addEventListener("click", (event) => {
         event.stopPropagation();
         toggleManual();
-      });
-
-      tocBtn.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (state.manualMode) {
-          state.manualMode = false;
-        }
-        toggleToc();
-      });
-
-      translateBtn.addEventListener("click", (event) => {
-        event.stopPropagation();
-        applyTraditionalConversion();
       });
 
       resizeBtn.addEventListener("click", (event) => {
@@ -1273,12 +922,7 @@
         } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
           moveBy(-1);
         } else if (event.key === " ") {
-          if (state.tocOpen) {
-            state.tocOpen = false;
-            state.bossMode = true;
-          } else {
-            state.bossMode = !state.bossMode;
-          }
+          state.bossMode = !state.bossMode;
           render();
         }
       });
